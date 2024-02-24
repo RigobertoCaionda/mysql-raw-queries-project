@@ -11,12 +11,12 @@ Att: This project is totally focused on implementing raw queries with adonisJs a
 
 1. Clone the master branch of the repository:
 ```
-git clone https://github.com/RigobertoCaionda/sqlite-project
+git clone https://github.com/RigobertoCaionda/mysql-raw-queries-project.git
 ```
 
-2. Enter the sqlite-project directory:
+2. Enter the mysql-raw-queries-project:
 ```
-cd sqlite-project
+cd mysql-raw-queries-project
 ```
 3. Install the dependencies: 
 ```
@@ -35,120 +35,44 @@ http://localhost:3000
 
 ```
 
-## Estrutura do Projeto
+## Project Structure
 This the folder structure of this project:
-- `src/`: It has the main source code of the application.
-- `models/`: Stores the data models used by the application.
-- `controllers/`: Contains the controllers responsible for handling HTTP requests.
-- `routes/`: Define the application API routes.
+- `app/`: It has the main source code of the application.
+- `Controllers/`: Contains the controllers responsible for handling HTTP requests.
 Important files:
-- `database.js`: Database configuration file.
-- `app.js`: The main file of the application.
-- `Usuario.js`: User Model.
-- `UsuarioController.js`: User Controller.
-- `routes.js`: API routes definition.
+- `UsersController.ts`: User Controller.
+- `routes.ts`: API routes definition.
 
 ## Code Example:
 
-This is the database.js file, in this file we configured sequelize and created the connection with database using sqlite database:
+This is index method in the UsersController to get all users:
 
-const { Sequelize } = require("sequelize");
+async index({ response, request }: HttpContextContract) {
+    const page = request.all().page || 1;
+    const perPage = request.all().perPage || 2;
+    const offset = (page - 1) * perPage;
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: "database.sqlite",
-});
+    const users = await Database.rawQuery(
+      `SELECT id, email, created_at, updated_at FROM users ORDER BY id DESC LIMIT ? OFFSET ?`, [perPage, offset]
+    );
+    return response.json(users && users.length > 0 ? users[0] : []);
+  }
 
-module.exports = sequelize;
 
-
-This is the User Model file called Usuario.js:
-const { DataTypes } = require("sequelize");
-const sequelize = require("../../database");
-
-const Usuario = sequelize.define("Usuario", {
-  nome: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  idade: {
-    type: DataTypes.INTEGER,
-  },
-});
-
-(async () => {
-  await sequelize.sync();
-})();
-
-module.exports = Usuario;
-
-This is the User controller and here you can see how we can combine sequelize and sqlite:
-const Usuario = require("../models/Usuario");
-
-module.exports = {
-
-  async index(req, res) {
-    try {
-      const usuarios = await Usuario.findAll();
-      return res.json(usuarios);
-    } catch (error) {
-      return res.status(500).json({ error: "Erro ao consultar usuários." });
+This is getUserPosts method in the UsersController to get a user with his posts:
+ async getUserPosts({ response, request }: HttpContextContract) {
+    const body = request.all();
+    if (!body.id) {
+      return "id is required";
     }
-  },
-
-  async store(req, res) {
-    const { nome, idade } = req.body;
-    if (!nome || !idade) {
-      return res.status(400).json({ error: "Nome e idade são obrigatórios." });
-    }
-
-    try {
-      const usuario = await Usuario.create({ nome, idade });
-      return res.json(usuario);
-    } catch (error) {
-      return res.status(500).json({ error: "Erro ao inserir usuário." });
-    }
-  },
-
-  async update(req, res) {
-    const { id } = req.params;
-    const { nome, idade } = req.body;
-    if (!nome || !idade) {
-      return res.status(400).json({ error: "Nome e idade são obrigatórios." });
-    }
-
-    try {
-      const usuario = await Usuario.findByPk(id);
-      if (!usuario) {
-        return res.status(404).json({ error: "Usuário não encontrado." });
-      }
-
-      usuario.nome = nome;
-      usuario.idade = idade;
-      await usuario.save();
-
-      return res.json(usuario);
-    } catch (error) {
-      return res.status(500).json({ error: "Erro ao atualizar usuário." });
-    }
-  },
-
-  async destroy(req, res) {
-    const { id } = req.params;
-
-    try {
-      const usuario = await Usuario.findByPk(id);
-      if (!usuario) {
-        return res.status(404).json({ error: "Usuário não encontrado." });
-      }
-
-      await usuario.destroy();
-      return res.status(204).send();
-    } catch (error) {
-      return res.status(500).json({ error: "Erro ao remover usuário." });
-    }
-  },
-};
+    const userPosts = await Database.rawQuery(
+      "SELECT users.id, users.name, users.country, users.likes, users.email, posts.id AS post_id, posts.title, posts.category_id, posts.user_id FROM users INNER JOIN posts ON users.id = posts.user_id WHERE users.id = ?",
+      [body.id]
+    );
+    return response.json(
+      userPosts && userPosts.length > 0 ? userPosts[0] : null
+    );
+  }
 
 
 ## Credits
